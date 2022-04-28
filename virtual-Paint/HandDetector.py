@@ -35,7 +35,7 @@ class HandDetector:
                     self.mpDraw.draw_landmarks(image, hand_landmarks, self.mpHands.HAND_CONNECTIONS)
         return image
 
-    def find_position(self, image, hand_index=8):
+    def find_position(self, image):
         positions = []
         reel_position = []
         if self.results.multi_hand_landmarks:
@@ -44,14 +44,21 @@ class HandDetector:
                     img_height, img_width, img_depth = image.shape
                     cx, cy = int(img_width * landmark.x), int(img_height * landmark.y)
                     reel_position.append([idx, landmark.x, landmark.y])
-
+                    """
                     if idx == hand_index:
-                        print(idx, cx, cy)
+                        # print(idx, cx, cy)
+                        pass
                     #    self.points.append([cx, cy])
+                    """
                     positions.append([idx, cx, cy])
         return positions, reel_position
 
+    def get_finger_position(self, image, finger_index):
+        positions, _ = self.find_position(image)
+        return positions[finger_index][1], positions[finger_index][2]
+
     def compute_distance_between_two_fingers(self, image, first_idx, second_idx):
+        distance = 0
         positions, reel_position = self.find_position(image)
         if len(reel_position) != 0:
             distance = math.sqrt((reel_position[first_idx][1] - reel_position[second_idx][1]) ** 2 + (
@@ -63,9 +70,27 @@ class HandDetector:
                         ((positions[first_idx][1] + positions[second_idx][1]) // 2,
                          ((positions[first_idx][2] + positions[second_idx][2]) // 2) - 30),
                         cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+        return distance
+
+    def index_up_and_middle_finger_down(self, image):
+        return self.compute_distance_between_two_fingers(image, 8, 7) > 0.05 > self.compute_distance_between_two_fingers(image, 12, 11)
+
+    def index_and_middle_finger_up(self, image):
+        return self.compute_distance_between_two_fingers(image, 8, 7) > 0.05 and self.compute_distance_between_two_fingers(image, 12, 11) > 0.06
+
+    def choice_state(self, image):
+        index_positions = self.get_finger_position(image, 8)
+        middle_positions = self.get_finger_position(image, 12)
+        if self.index_up_and_middle_finger_down(image):
+            cv2.circle(image, index_positions, 20, (255, 0, 0), cv2.FILLED)
+        elif self.index_and_middle_finger_up(image):
+            cv2.circle(image, middle_positions, 20, (0, 0, 0), cv2.FILLED)
+        else:
+            pass
 
     def select_choice(self):
         pass
+
     """
     def selectCircle(self, img):
         # 370 <= myPos[8][1] <= 430 and 40 <= myPos[8][2] <= 100
@@ -113,7 +138,11 @@ if __name__ == "__main__":
         img[0:480, 0:125] = read_img("normal.png")
         whiteImg = np.ones((img.shape[0], img.shape[1]))
         img = detector.find_hand(img)
-        detector.compute_distance_between_two_fingers(img, 8, 4)
+        d = detector.compute_distance_between_two_fingers(img, 8, 7)
+        pos, reel = detector.find_position(img)
+        if(len(pos) != 0):
+            detector.choice_state(img)
+
         # detector.find_position(img, hand_index=12)
         # detector.drawLine(img)
         # detector.selectCircle(whiteImg)
