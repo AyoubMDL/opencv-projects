@@ -9,6 +9,11 @@ frame_width = 720
 frame_height = 480
 brightness = 10
 
+eraser_position = 48
+black_position = 135
+red_position = 218
+blue_position = 307
+green_position = 401
 
 class HandDetector:
     def __init__(self, mode=False, maxHands=2, modelComplexity=1, detectConf=0.5, trackConf=0.5):
@@ -21,6 +26,9 @@ class HandDetector:
         self.circleSelected = False
         self.points = []
         self.canDraw = False
+
+        self.select_activated = False
+        self.draw_activated = False
 
         self.mpHands = mp.solutions.hands
         self.handDetect = self.mpHands.Hands()
@@ -82,14 +90,35 @@ class HandDetector:
         index_positions = self.get_finger_position(image, 8)
         middle_positions = self.get_finger_position(image, 12)
         if self.index_up_and_middle_finger_down(image):
+            self.draw_activated = True
+            self.select_activated = False
             cv2.circle(image, index_positions, 20, (255, 0, 0), cv2.FILLED)
         elif self.index_and_middle_finger_up(image):
+            self.draw_activated = False
+            self.select_activated = True
             cv2.circle(image, middle_positions, 20, (0, 0, 0), cv2.FILLED)
         else:
+            self.draw_activated = False
+            self.select_activated = False
             pass
 
-    def select_choice(self):
-        pass
+    def select_choice(self, x=0, y=0):
+        path = "normal.png"
+        if x < 125 and self.select_activated:
+            if y <= eraser_position:
+                path = "eraser.png"
+            elif eraser_position <= y <= black_position:
+                path = "black.png"
+            elif red_position <= y <= blue_position:
+                path = "blue.png"
+            elif black_position <= y <= red_position:
+                path = "red.png"
+            elif  blue_position <= y <= green_position:
+                path = "green.png"
+
+        return path
+
+
 
     """
     def selectCircle(self, img):
@@ -133,15 +162,22 @@ if __name__ == "__main__":
     cap.set(10, brightness)
 
     while True:
+        #path = detector.select_choice()
         success, img = cap.read()
         img = cv2.flip(img, 1, 1)
-        img[0:480, 0:125] = read_img("normal.png")
+
         whiteImg = np.ones((img.shape[0], img.shape[1]))
         img = detector.find_hand(img)
         d = detector.compute_distance_between_two_fingers(img, 8, 7)
         pos, reel = detector.find_position(img)
+
         if(len(pos) != 0):
+            index_positions = detector.get_finger_position(img, 8)
+            #print(index_positions)
             detector.choice_state(img)
+            path = detector.select_choice(index_positions[0], index_positions[1])
+            print(path)
+            img[0:480, 0:125] = read_img(path)
 
         # detector.find_position(img, hand_index=12)
         # detector.drawLine(img)
